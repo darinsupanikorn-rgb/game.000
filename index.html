@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Quest — ไทยผจญภัย</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+  body { font-family:"Leelawadee UI","TH Sarabun New",Tahoma,sans-serif;
+         display:flex; align-items:center; justify-content:center; }
+  #wrap { position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; background:#000; }
+  canvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#10142a; display:block;
+           width:min(100vw, 177.78vh); height:min(100vh, 56.25vw); }
+  /* ---------- ชั้น UI (ข้อความคมทุกจอ) ---------- */
+  #ui { position:absolute; inset:0; pointer-events:none; overflow:hidden;
+        font-family:"Leelawadee UI","TH Sarabun New",Tahoma,sans-serif; }
+  #ui .txt { position:absolute; transform:translate(-50%,-50%); white-space:nowrap;
+             text-shadow:0 2px 0 #000, 2px 0 0 #000, -2px 0 0 #000, 0 -2px 0 #000, 0 0 8px rgba(0,0,0,.9); }
+  /* HUD บน */
+  #hud { position:absolute; top:0; left:0; right:0; display:flex; align-items:center; gap:1.2vw;
+         padding:.6vh 1vw; background:linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.45) 80%, transparent);
+         font-size:clamp(13px,2.2vmin,20px); font-weight:bold; }
+  #hud .goldbar { height:2px; background:linear-gradient(90deg,#ffd34d,#ff922b,#ffd34d); position:absolute; bottom:0; left:0; right:0; }
+  #hHearts { color:#ff6b81; letter-spacing:2px; }
+  #hScore { color:#fff; } #hCoins { color:#ffd34d; }
+  #hLevel { color:#cfd4ea; margin-left:auto; font-weight:normal; }
+  #hPow { border:1px solid currentColor; border-radius:6px; padding:0 .5em; }
+  #hPad { color:#51cf66; }
+  /* แถบเลือดบอส */
+  #bossbar { position:absolute; top:6.5%; left:50%; transform:translateX(-50%); width:min(46%,420px); display:none; text-align:center; }
+  #bossbar .nm { font-size:clamp(12px,2vmin,17px); font-weight:bold; color:#ff8787;
+                 text-shadow:0 2px 0 #000,0 0 10px rgba(0,0,0,.9); margin-bottom:2px; }
+  #bossbar .tr { height:10px; background:rgba(0,0,0,.65); border:1px solid #ffd34d; border-radius:6px; overflow:hidden; }
+  #bossbar .fl { height:100%; background:linear-gradient(180deg,#ff6b6b,#c92a2a); width:100%; }
+  /* คอมโบ */
+  #combo { position:absolute; top:12%; left:50%; transform:translateX(-50%); display:none;
+           font-size:clamp(15px,2.8vmin,26px); font-weight:bold; color:#ffd34d;
+           text-shadow:0 2px 0 #7a2f00,0 0 14px rgba(255,150,40,.8); }
+  /* แบนเนอร์กลาง */
+  #banner { position:absolute; top:22%; left:50%; transform:translateX(-50%); display:none;
+            font-size:clamp(16px,3.2vmin,30px); font-weight:bold; color:#ffd34d; white-space:nowrap;
+            text-shadow:0 3px 0 #000,0 0 16px rgba(0,0,0,.9); }
+  /* ป้ายชวนคุย */
+  #prompt { position:absolute; display:none; transform:translate(-50%,-100%); white-space:nowrap;
+            font-size:clamp(12px,2.2vmin,18px); color:#fff; background:rgba(0,0,0,.65);
+            border:1px solid #ffd34d; border-radius:8px; padding:.2em .8em; }
+  /* กล่องบทสนทนา */
+  #talk { position:absolute; left:50%; bottom:3%; transform:translateX(-50%); width:min(92%,640px); display:none;
+          background:rgba(5,6,18,.88); border:2px solid #ffd34d; border-radius:12px; padding:.6em 1em .8em; }
+  #talk .nm { color:#ffd34d; font-weight:bold; font-size:clamp(13px,2.4vmin,19px); }
+  #talk .tx { color:#fff; font-size:clamp(14px,2.6vmin,21px); margin-top:2px; }
+  #talk .nx { position:absolute; right:10px; bottom:6px; color:#8b93b0; font-size:12px; }
+  /* ป๊อปอัพคะแนน */
+  .pop { position:absolute; transform:translate(-50%,-50%); font-weight:bold; white-space:nowrap;
+         font-size:clamp(12px,2.2vmin,18px); text-shadow:0 2px 0 #000,0 0 8px rgba(0,0,0,.9); }
+  .ntag { position:absolute; transform:translate(-50%,-100%); font-size:clamp(10px,1.8vmin,14px); font-weight:bold;
+          color:#fff; text-shadow:0 2px 0 #000,0 0 6px rgba(0,0,0,.9); white-space:nowrap; }
+  .sign { position:absolute; transform:translate(-50%,-50%); font-weight:bold; white-space:nowrap;
+          font-size:clamp(9px,1.7vmin,13px); color:#fff8e1; text-shadow:0 2px 0 #4a2c00,0 0 6px rgba(0,0,0,.9); }
+  /* ---------- จอกลาง (intro/clear/win/over/pause) ---------- */
+  #center { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center;
+            gap:1.4vmin; text-align:center; background:rgba(5,6,15,.72); padding:20px; }
+  #center h2 { font-size:clamp(24px,6vmin,52px); color:#ffd34d; letter-spacing:3px;
+               text-shadow:0 4px 0 #5a2400, 0 0 26px rgba(255,150,50,.5); }
+  #center p { font-size:clamp(14px,2.6vmin,22px); color:#fff; text-shadow:0 2px 0 #000; }
+  #center .dim { color:#aab; font-size:clamp(12px,2.2vmin,18px); }
+  #center button { pointer-events:auto; font-family:inherit; font-size:clamp(14px,2.6vmin,20px); font-weight:bold;
+            padding:.5em 1.8em; border:none; border-radius:10px; cursor:pointer; margin-top:1vmin;
+            background:linear-gradient(180deg,#ff922b,#d9480f); color:#fff; box-shadow:0 4px 0 #7a2c00; }
+  #center button:active { transform:translateY(3px); box-shadow:none; }
+  /* ---------- แดชบอร์ด ---------- */
+  #dash { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+          gap:1.6vmin; text-align:center; padding:18px; overflow-y:auto;
+          background:linear-gradient(180deg, rgba(20,12,40,.96), rgba(120,30,40,.94) 55%, rgba(20,30,20,.96)); }
+  #dash::before { content:""; position:absolute; inset:10px; border:2px solid rgba(255,211,77,.5); border-radius:6px; pointer-events:none; }
+  #dash h1 { font-size:clamp(30px,8vmin,64px); color:#ffd34d; letter-spacing:5px;
+             text-shadow:0 4px 0 #7a2f00, 0 0 28px rgba(255,150,50,.6); }
+  #dash .sub { color:#ffe8c2; font-size:clamp(13px,2.6vmin,17px); }
+  #dash .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .bigbtn { font-size:clamp(16px,3vmin,21px); font-weight:bold; padding:12px 40px; border:none; border-radius:12px; cursor:pointer;
+            background:linear-gradient(180deg,#ff922b,#d9480f); color:#fff;
+            box-shadow:0 4px 0 #7a2c00, 0 0 18px rgba(255,140,40,.5); font-family:inherit; }
+  .bigbtn:hover { filter:brightness(1.12); }
+  .bigbtn:active { transform:translateY(3px); box-shadow:0 1px 0 #7a2c00; }
+  .lvlbtn { font-family:inherit; font-size:clamp(11px,2vmin,14px); padding:8px 14px; border-radius:8px; cursor:pointer;
+            border:1px solid #ffd34d; background:rgba(0,0,0,.45); color:#ffe8c2; }
+  .lvlbtn:disabled { opacity:.35; cursor:not-allowed; }
+  .lvlbtn:not(:disabled):hover { background:rgba(255,211,77,.2); }
+  .setbtn { font-family:inherit; font-size:clamp(11px,2vmin,13px); padding:7px 14px; border-radius:8px; cursor:pointer;
+            border:1px solid #8b93b0; background:rgba(0,0,0,.45); color:#e8e8f0; }
+  #padstat { font-size:clamp(11px,2vmin,13px); color:#8b93b0; }
+  #howto { display:grid; grid-template-columns:auto auto; gap:4px 16px; font-size:clamp(11px,2.2vmin,14px);
+           background:rgba(0,0,0,.45); border:1px solid rgba(255,211,77,.35); border-radius:10px; padding:12px 18px; text-align:left;
+           max-width:94vw; }
+  #howto b { color:#ffd34d; font-weight:normal; }
+  kbd { display:inline-block; min-width:22px; text-align:center; padding:1px 6px; margin:0 1px;
+        background:#22263f; border:1px solid #565d85; border-bottom-width:3px; border-radius:5px;
+        font-family:Consolas,monospace; font-size:11px; color:#fff; }
+</style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="480" height="270"></canvas>
+    <div id="ui">
+      <div id="hud"><span id="hHearts"></span><span id="hScore"></span><span id="hCoins"></span><span id="hLevel"></span><span id="hPow"></span><span id="hPad"></span><div class="goldbar"></div></div>
+      <div id="bossbar"><div class="nm"></div><div class="tr"><div class="fl"></div></div></div>
+      <div id="combo"></div>
+      <div id="banner"></div>
+      <div id="prompt"></div>
+      <div id="talk"><div class="nm"></div><div class="tx"></div><div class="nx">X ▼</div></div>
+      <div id="pops"></div>
+      <div id="center"><h2></h2><p></p><p class="dim"></p><button></button></div>
+    </div>
+    <div id="dash">
+      <h1>PIXEL QUEST</h1>
+      <div class="sub">ไทยผจญภัย — เด็กชายวัย 15 ออกจากบ้านตามฝันเป็นผู้ปราบปีศาจ 🐃</div>
+      <div class="row"><button class="bigbtn" id="btnStart">▶ เริ่มผจญภัย</button></div>
+      <div class="row" id="lvls">
+        <button class="lvlbtn"></button><button class="lvlbtn"></button><button class="lvlbtn"></button><button class="lvlbtn"></button><button class="lvlbtn"></button>
+      </div>
+      <div id="howto">
+        <span><b>เดิน</b></span><span><kbd>←</kbd><kbd>→</kbd> / <kbd>A</kbd><kbd>D</kbd> / อนาล็อกจอย</span>
+        <span><b>โดด</b> (กดค้างโดดสูง + กดซ้ำโดด 2 ชั้น)</span><span><kbd>Space</kbd> / ปุ่ม <kbd>A</kbd> จอย</span>
+        <span><b>สไลด์</b></span><span><kbd>↓</kbd>+เดิน (กด <kbd>S</kbd> ค้างแล้วเดิน)</span>
+        <span><b>ฟันดาบปราบควาย</b></span><span><kbd>X</kbd> / <kbd>J</kbd> / ปุ่ม <kbd>X</kbd> จอย</span>
+        <span><b>ยิงปืนกูประดิษฐ์</b></span><span><kbd>C</kbd> / <kbd>K</kbd> / ปุ่ม <kbd>RB</kbd> จอย</span>
+        <span><b>ท่อ</b></span><span>ยืนบนท่อกด <kbd>↓</kbd> ไปมินิเกมรับเหรียญแล้วข้ามด่าน</span>
+        <span><b>คอมโบ</b></span><span>อัดศัตรูติดๆ กัน ×5 ได้ท่าหมุนฟันกว้าง 2 เท่า</span>
+        <span><b>ของ</b></span><span><kbd>?</kbd> ผักกาดขาวฮีล · <kbd>F</kbd> ปืน</span>
+      </div>
+      <div class="row">
+        <button class="setbtn" id="btnMute">🔊 เสียง</button>
+        <button class="setbtn" id="btnFull">⛶ เต็มจอ</button>
+      </div>
+      <div id="padstat">⌨ ยังไม่เจอจอย (เสียบแล้วกดปุ่มใดๆ)</div>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
